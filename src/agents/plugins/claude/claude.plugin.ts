@@ -247,9 +247,17 @@ export const ClaudePluginMetadata: AgentMetadata = {
               const conflicts = Object.keys(settingsEnv).filter(k => mappedVars.includes(k));
 
               if (conflicts.length > 0) {
+                // Detect sensitive keys that should have their values masked
+                const sensitiveKeyPatterns = ['TOKEN', 'KEY', 'SECRET', 'PASSWORD', 'AUTH'];
+                const isSensitive = (key: string) =>
+                  sensitiveKeyPatterns.some(pattern => key.toUpperCase().includes(pattern));
+
                 console.warn(chalk.yellow('\n⚠️  Warning: ~/.claude/settings.json contains env vars that will override CodeMie profile settings:'));
                 for (const key of conflicts) {
-                  console.warn(chalk.yellow(`   - ${key}: "${settingsEnv[key]}"`));
+                  const value = settingsEnv[key];
+                  // Mask sensitive values to prevent credential leakage
+                  const displayValue = isSensitive(key) ? '***REDACTED***' : `"${value}"`;
+                  console.warn(chalk.yellow(`   - ${key}: ${displayValue}`));
                 }
                 console.warn(chalk.yellow('   These settings.json values take precedence over your CodeMie profile.'));
                 console.warn(chalk.yellow('   Remove them from ~/.claude/settings.json to allow CodeMie to control these settings.\n'));
