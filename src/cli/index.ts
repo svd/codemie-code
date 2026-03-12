@@ -33,6 +33,7 @@ import { createModelsCommand } from './commands/models.js';
 import { createAssistantsCommand } from './commands/assistants/index.js';
 import { createMcpCommand } from './commands/mcp/index.js';
 import { createMcpProxyCommand } from './commands/mcp-proxy.js';
+import { createProxyCommand } from './commands/proxy/index.js';
 import { FirstTimeExperience } from './first-time.js';
 import { getDirname } from '../utils/paths.js';
 
@@ -78,6 +79,7 @@ program.addCommand(createTestMetricsCommand());
 program.addCommand(createModelsCommand());
 program.addCommand(createMcpCommand());
 program.addCommand(createMcpProxyCommand());
+program.addCommand(createProxyCommand());
 
 // Check for --task option before parsing commands
 const taskIndex = process.argv.indexOf('--task');
