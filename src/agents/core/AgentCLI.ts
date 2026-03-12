@@ -74,12 +74,20 @@ export class AgentCLI {
         // but plain object when args are provided. Handle both cases defensively.
         const opts = typeof options?.opts === 'function' ? options.opts() : options;
 
+        // Retrieve pass-through args if they exist
+        const passThroughArgs = (this.program as any)._passThroughArgs || [];
+
+        // Combine regular args with pass-through args
+        const allArgs = [...args, ...passThroughArgs];
+
         // Debug logging
         logger.debug(`[AgentCLI] action called with args: ${JSON.stringify(args)}`);
+        logger.debug(`[AgentCLI] passThroughArgs: ${JSON.stringify(passThroughArgs)}`);
+        logger.debug(`[AgentCLI] combined allArgs: ${JSON.stringify(allArgs)}`);
         logger.debug(`[AgentCLI] options type: ${typeof options}, has opts(): ${typeof options?.opts === 'function'}`);
         logger.debug(`[AgentCLI] extracted opts: ${JSON.stringify(opts)}`);
 
-        await this.handleRun(args, opts);
+        await this.handleRun(allArgs, opts);
       });
 
     // Add health check command
@@ -464,9 +472,39 @@ export class AgentCLI {
   }
 
   /**
+   * Split argv on -- delimiter
+   * Returns: [cliArgs, passThroughArgs]
+   * - cliArgs: arguments before -- (or all if no -- found)
+   * - passThroughArgs: arguments after -- (empty if no -- found)
+   */
+  private splitOnDoubleDash(argv: string[]): { cliArgs: string[]; passThroughArgs: string[] } {
+    const doubleDashIndex = argv.indexOf('--');
+
+    if (doubleDashIndex === -1) {
+      // No -- found, all args go to CLI parsing
+      return { cliArgs: argv, passThroughArgs: [] };
+    }
+
+    // Split on --
+    // cliArgs includes node, script, and everything before --
+    // passThroughArgs includes everything after -- (excluding -- itself)
+    return {
+      cliArgs: argv.slice(0, doubleDashIndex),
+      passThroughArgs: argv.slice(doubleDashIndex + 1)
+    };
+  }
+
+  /**
    * Run the CLI
    */
   async run(argv: string[]): Promise<void> {
-    await this.program.parseAsync(argv);
+    // Split on -- delimiter BEFORE Commander.js parsing
+    const { cliArgs, passThroughArgs } = this.splitOnDoubleDash(argv);
+
+    // Store pass-through args for access in action handler
+    (this.program as any)._passThroughArgs = passThroughArgs;
+
+    // Parse only the CLI portion with Commander.js
+    await this.program.parseAsync(cliArgs);
   }
 }

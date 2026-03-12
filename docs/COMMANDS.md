@@ -99,6 +99,42 @@ codemie-claude --task "Implement task 1" --silent --dangerously-skip-permissions
 
 **Note**: Configuration options (`--profile`, `--model`, etc.) are handled by CodeMie CLI wrapper. All other options are passed directly to the underlying agent binary.
 
+### Pass-Through Arguments
+
+Use the `--` delimiter to pass arguments directly to the underlying agent without CodeMie parsing. This works for **ALL** CodeMie agents (claude, gemini, opencode, claude-acp).
+
+**Why use `--` delimiter?**
+Some agents have flags that conflict with CodeMie's wrapper options. The `--` delimiter prevents Commander.js from throwing "unknown option" errors.
+
+```bash
+# Pass flags directly to the underlying agent
+codemie-claude -- mcp add --transport http grep https://mcp.grep.app
+codemie-gemini -- some-gemini-flag value
+codemie-opencode -- some-opencode-flag value
+
+# Combine CodeMie flags with pass-through
+codemie-claude --profile work -- mcp add --transport http grep https://mcp.grep.app
+codemie-gemini --model gemini-2.0-flash -- some-flag value
+codemie-opencode --model gpt-4 -- some-flag value
+
+# Everything after -- is passed unchanged to the underlying agent
+codemie-claude --task "hello world"
+codemie-claude -- mcp list
+
+# Edge case: multiple -- (only first is treated as delimiter)
+codemie-claude -- first -- second  # "first -- second" passed to agent
+```
+
+**How it works:**
+1. Arguments before `--` are parsed by CodeMie CLI (for profiles, models, etc.)
+2. Arguments after `--` are passed unchanged to the underlying agent
+3. If no `--` is present, all arguments are parsed normally (backward compatible)
+
+**Common use cases:**
+- MCP server commands with `--transport` flag
+- Agent-specific flags not recognized by CodeMie wrapper
+- Passing complex argument chains to the underlying agent
+
 ## Profile Management Commands
 
 Manage multiple provider configurations (work, personal, team, etc.) with separate profiles.
