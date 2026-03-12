@@ -14,6 +14,14 @@ import { OpenCodePluginMetadata } from '../plugins/opencode/opencode.plugin.js';
 import {ClaudeAcpPluginMetadata} from "../plugins/claude/claude-acp.plugin.js";
 
 /**
+ * Extended Command interface with CodeMie-specific properties
+ */
+interface CodeMieCommand extends Command {
+  /** Pass-through arguments after -- delimiter (stored before parsing) */
+  _passThroughArgs?: string[];
+}
+
+/**
  * Universal CLI builder for any agent
  * Builds commander programs from agent metadata
  */
@@ -75,7 +83,8 @@ export class AgentCLI {
         const opts = typeof options?.opts === 'function' ? options.opts() : options;
 
         // Retrieve pass-through args if they exist
-        const passThroughArgs = (this.program as any)._passThroughArgs || [];
+        const extendedProgram = this.program as CodeMieCommand;
+        const passThroughArgs = extendedProgram._passThroughArgs || [];
 
         // Combine regular args with pass-through args
         const allArgs = [...args, ...passThroughArgs];
@@ -495,14 +504,30 @@ export class AgentCLI {
   }
 
   /**
-   * Run the CLI
+   * Run the CLI with argument parsing
+   *
+   * Supports double dash (--) delimiter for pass-through arguments to the
+   * underlying agent. This allows agent-specific flags to bypass CodeMie's
+   * Commander.js parsing.
+   *
+   * @param argv - Process arguments including node and script path.
+   *               Example: ['node', '/path/to/cli', '--profile', 'work', '--', 'mcp', 'list']
+   *
+   * @example
+   * // Normal parsing (no delimiter)
+   * await cli.run(['node', 'cli', 'task', 'arg1']);
+   *
+   * @example
+   * // With delimiter - splits CodeMie flags from agent flags
+   * await cli.run(['node', 'cli', '--profile', 'work', '--', 'mcp', 'add', '--transport', 'http']);
    */
   async run(argv: string[]): Promise<void> {
     // Split on -- delimiter BEFORE Commander.js parsing
     const { cliArgs, passThroughArgs } = this.splitOnDoubleDash(argv);
 
     // Store pass-through args for access in action handler
-    (this.program as any)._passThroughArgs = passThroughArgs;
+    const extendedProgram = this.program as CodeMieCommand;
+    extendedProgram._passThroughArgs = passThroughArgs;
 
     // Parse only the CLI portion with Commander.js
     await this.program.parseAsync(cliArgs);
