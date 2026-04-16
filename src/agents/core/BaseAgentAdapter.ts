@@ -801,11 +801,19 @@ export abstract class BaseAgentAdapter implements AgentAdapter {
     if (!providerName) return false;
 
     const provider = ProviderRegistry.getProvider(providerName);
+
+    // Providers with no authentication requirement never route through the proxy.
+    // This also guards against stale CODEMIE_AUTH_METHOD='jwt' values persisting
+    // in process.env from a previous JWT-authenticated session (written by
+    // Object.assign(process.env, env) at the end of run()).
+    if (provider?.authType === 'none') return false;
+
     const isSSOProvider = provider?.authType === 'sso';
     const isJWTAuth = env.CODEMIE_AUTH_METHOD === 'jwt';
     const isProxyEnabled = this.metadata.ssoConfig?.enabled ?? false;
 
-    // Proxy needed for SSO cookie injection OR JWT bearer token injection
+    // Proxy is only for model API authentication/forwarding. Analytics sync can
+    // be configured independently and must not force native providers through it.
     return (isSSOProvider || isJWTAuth) && isProxyEnabled;
   }
 
@@ -853,11 +861,13 @@ export abstract class BaseAgentAdapter implements AgentAdapter {
       sessionId: env.CODEMIE_SESSION_ID,
       version: env.CODEMIE_CLI_VERSION,
       profileConfig,
-      authMethod: (env.CODEMIE_AUTH_METHOD as 'sso' | 'jwt') || undefined,
+      authMethod: (env.CODEMIE_AUTH_METHOD === 'sso' || env.CODEMIE_AUTH_METHOD === 'jwt') ? env.CODEMIE_AUTH_METHOD : undefined,
       jwtToken: env.CODEMIE_JWT_TOKEN || undefined,
       repository,
       branch: branch || undefined,
-      project: env.CODEMIE_PROJECT || undefined
+      project: env.CODEMIE_PROJECT || undefined,
+      syncApiUrl: env.CODEMIE_SYNC_API_URL || undefined,
+      syncCodeMieUrl: env.CODEMIE_URL || undefined
     };
   }
 
